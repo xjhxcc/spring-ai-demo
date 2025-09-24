@@ -56,8 +56,7 @@ public class EmailSummaryService {
     public String generateFollowUp(String orderId) throws Exception {
         List<String> emails = getAllEmailsByOrderId(orderId);
         var prompt = buildPrompt(emails);
-        String repliedContent = chatClient.prompt(prompt).call().content();
-        return repliedContent;
+        return chatClient.prompt(prompt).call().content();
     }
 
 
