@@ -1,23 +1,38 @@
 package spring.ai.example.spring_ai_demo.email;
 
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
-import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
+@Slf4j
 public class EmailSummaryService {
 
+    private static final Logger log = LoggerFactory.getLogger(EmailSummaryService.class);
     private final ChatClient chatClient; // Spring AI 自动注入
+    private final OllamaChatModel ollamaChatModel;
 
     @Autowired
-    public EmailSummaryService(ChatClient chatClient) {
+    public EmailSummaryService(ChatClient chatClient, OllamaChatModel ollamaChatModel, OllamaChatModel chatModel) {
         this.chatClient = chatClient;
+        this.ollamaChatModel = ollamaChatModel;
     }
 
     public String summarizeEmailThread(String emailThreadContent) {
@@ -59,6 +74,19 @@ public class EmailSummaryService {
         return chatClient.prompt(prompt).call().content();
     }
 
+    public Flux<String> generateFollowUp2(String orderId) throws Exception {
+        List<String> emails = getAllEmailsByOrderId(orderId);
+        var prompt = buildPrompt(emails);
+      return chatClient.prompt(prompt).stream().content();
+    }
+
+    public Flux<String> generateFollowUp3(String orderId) throws Exception {
+        List<String> emails = getAllEmailsByOrderId(orderId);
+        List<String> list = emails.stream().map(this::summarize).toList();
+        var prompt = buildPrompt(list);
+        return chatClient.prompt(prompt).stream().content();
+    }
+
 
     private Prompt buildPrompt(List<String> list) {
         PromptTemplate promptTemplate = new PromptTemplate("""
@@ -67,12 +95,30 @@ public class EmailSummaryService {
                 {list}
                 若客户已回答全部提及要素，直接返回“无需追问”。
                 如果没有全部澄清，请生成一段礼貌、简洁的追问邮件（中文），要求客户补充未澄清的信息。
-                仅能对“用户原文中明确提到需要客户补充”的要素进行追问
-                禁止新增用户未提及的要素（如订单号、电话等
-                输出格式：主题：<主题>正文：<正文>未澄清问题：<列表>
-                --- 邮件记录 ---
+                    仅能对“用户原文中明确提到需要客户补充”的要素进行追问
+                    禁止新增用户未提及的要素（如订单号、电话等)
+                    输出格式：主题：<主题>正文：<正文>未澄清问题：<列表>
                 """);
         return promptTemplate.create(Map.of("list", list));
+    }
+
+
+    private static final int MAX_CHARS = 50 * 2;   // ≈50 token
+    public String summarize(String text) {
+        if (text.length() < MAX_CHARS) return text;
+
+        Prompt prompt = new Prompt("用50字以内总结内容：" + text);
+
+        ChatOptions options = OllamaOptions.builder()
+                .numPredict(80)
+                .temperature(0.3)
+                .build();
+
+        return chatClient.prompt(prompt)
+                .options(options)
+                .user(text)
+                .call()
+                .content();
     }
 
     @Autowired

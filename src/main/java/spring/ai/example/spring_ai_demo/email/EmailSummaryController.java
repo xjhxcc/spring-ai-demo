@@ -1,10 +1,12 @@
 package spring.ai.example.spring_ai_demo.email;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 @RestController
 @RequestMapping("/api/emails")
@@ -36,6 +38,16 @@ public class EmailSummaryController {
     @GetMapping("genRepliedEmail")
     public String genRepliedEmail(@RequestParam String orderId) throws Exception {
         return emailSummaryService.generateFollowUp(orderId);
+    }
+
+    @GetMapping(value = "genRepliedEmail2")
+    public Flux<String> genRepliedEmail2(@RequestParam String orderId) throws Exception {
+        return emailSummaryService.generateFollowUp2(orderId);
+    }
+
+    @GetMapping(value = "genRepliedEmail3")
+    public Flux<String> genRepliedEmail3(@RequestParam String orderId) throws Exception {
+        return emailSummaryService.generateFollowUp3(orderId);
     }
 
 }
