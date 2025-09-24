@@ -33,5 +33,10 @@ public class EmailSummaryController {
         }
     }
 
+    @GetMapping("genRepliedEmail")
+    public String genRepliedEmail(@RequestParam String orderId) throws Exception {
+        return emailSummaryService.generateFollowUp(orderId);
+    }
+
 }
 
